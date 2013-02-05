@@ -26,12 +26,10 @@ namespace GypiAutoUpdater.Model
             _stack.Push(State.None);
 
             _currentString = new StringBuilder();
-            var debug = new StringBuilder();
             int x = input.Read();
             while (x >= 0)
             {
                 var c = (char)x;
-                debug.Append(c);
 
                 switch (_stack.Peek())
                 {
@@ -85,24 +83,20 @@ namespace GypiAutoUpdater.Model
             }   
         }
 
-        private string Indentation(int n)
-        {
-            var sb = new StringBuilder();
-            for (int i = 0; i < n; i++) sb.Append("  ");
-            return sb.ToString();
-        }
         private void Push(State state)
         {
-            Console.WriteLine(Indentation(_stack.Count) + "Start " + state);
             _stack.Push(state);
         }
 
         private void Pop()
         {
             var state = _stack.Pop();
-            Console.WriteLine(Indentation(_stack.Count) + "End" + state);
+            if (IsAutoClose(state) && _stack.Peek() == State.PropertyValue) Pop();
+        }
 
-            if ((state == State.Array || state == State.Obj || state == State.Str) && _stack.Peek() == State.PropertyValue) Pop();
+        private static bool IsAutoClose(State state)
+        {
+            return state == State.Array || state == State.Obj || state == State.Str;
         }
 
         private void Fail()
