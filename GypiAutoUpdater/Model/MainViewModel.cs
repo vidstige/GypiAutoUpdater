@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
+using System.Xml.Linq;
 using GypiAutoUpdater.FileSystem;
 
 namespace GypiAutoUpdater.Model
@@ -10,6 +11,8 @@ namespace GypiAutoUpdater.Model
     {
         private readonly FileInfo _gyp;
         private readonly FileInfo _vcxproj;
+        private List<string> _includes;
+        private List<string> _sources;
 
         public Project(FileInfo gyp, FileInfo vcxproj)
         {
@@ -21,30 +24,66 @@ namespace GypiAutoUpdater.Model
         {
             get { return _gyp; }
         }
+
+        public FileInfo VcxprojFile
+        {
+            get { return _vcxproj; }
+        }
+
+        public void LoadFiles()
+        {
+            var xdoc = XDocument.Load(VcxprojFile.FullName);
+            var ns = xdoc.Root.GetDefaultNamespace();
+            _includes = xdoc.Root.Descendants(ns + "ItemGroup").Elements(ns + "ClInclude").Select(e => e.Attribute("Include").Value).ToList();
+            _includes.Sort();
+            _sources = xdoc.Root.Descendants(ns + "ItemGroup").Elements(ns + "ClCompile").Select(e => e.Attribute("Include").Value).ToList();
+            _sources.Sort();
+        }
+
+        public void CheckForNewFiles()
+        {
+            var xdoc = XDocument.Load(VcxprojFile.FullName);
+            var ns = xdoc.Root.GetDefaultNamespace();
+            var includes = xdoc.Root.Descendants(ns + "ItemGroup").Elements(ns + "ClInclude").Select(e => e.Attribute("Include").Value).ToList();
+            includes.Sort();
+            var sources = xdoc.Root.Descendants(ns + "ItemGroup").Elements(ns + "ClCompile").Select(e => e.Attribute("Include").Value).ToList();
+            sources.Sort();
+
+            var removedIncludes = _includes.Except(includes);
+            var addedIncludes = includes.Except(_includes);
+
+            var removedSources = _sources.Except(sources);
+            var addedSources = sources.Except(_sources);
+        }
     }
 
-    class MainViewModel
+    class MainViewModel: IDisposable
     {
         private List<Project> _projects;
+        private readonly List<IDisposable> _watchers = new List<IDisposable>();
 
         public void Drop(IEnumerable<string> filePaths)
         {
             _projects = filePaths.SelectMany(filePath => FindProjects(new DirectoryInfo(filePath))).ToList();
-
-            WatchGypiFiles(_projects);
+            WatchVcxprojFiles(_projects);
         }
 
-        private void WatchGypiFiles(IEnumerable<Project> projects)
+        private void WatchVcxprojFiles(IEnumerable<Project> projects)
         {
             foreach (var project in projects)
             {
-                var parser = new GypParser();
-                using (var reader = new StreamReader(project.GypFile.OpenRead()))
-                {
-                    parser.Parse(reader);
-                }
-                //var node = GypFile.Parse(project.GypFile);
+                var watcher = new FileSystemWatcher(project.VcxprojFile.Directory.FullName, project.VcxprojFile.Name);
+                project.LoadFiles();
+                watcher.Changed += WatcherOnChanged;
+                watcher.EnableRaisingEvents = true;
+                _watchers.Add(watcher);
             }
+        }
+
+        private void WatcherOnChanged(object sender, FileSystemEventArgs e)
+        {
+            var project = _projects.Single(p => p.VcxprojFile.Name == e.Name);
+            project.CheckForNewFiles();
         }
 
         private IEnumerable<Project> FindProjects(DirectoryInfo directory)
@@ -86,6 +125,11 @@ namespace GypiAutoUpdater.Model
             var commentIndex = line.IndexOf('#');
             if (commentIndex < 0) return line;
             return line.Substring(0, commentIndex);
+        }
+
+        public void Dispose()
+        {
+            foreach (var watcher in _watchers) watcher.Dispose();
         }
     }
 }
