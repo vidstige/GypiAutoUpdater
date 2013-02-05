@@ -1,19 +1,25 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using GypiAutoUpdater.FileSystem;
 
 namespace GypiAutoUpdater.Model
 {
     internal class Project
     {
-        private readonly FileInfo _gypi;
+        private readonly FileInfo _gyp;
         private readonly FileInfo _vcxproj;
 
-        public Project(FileInfo gypi, FileInfo vcxproj)
+        public Project(FileInfo gyp, FileInfo vcxproj)
         {
-            _gypi = gypi;
+            _gyp = gyp;
             _vcxproj = vcxproj;
+        }
+
+        public FileInfo GypFile
+        {
+            get { return _gyp; }
         }
     }
 
@@ -24,6 +30,21 @@ namespace GypiAutoUpdater.Model
         public void Drop(IEnumerable<string> filePaths)
         {
             _projects = filePaths.SelectMany(filePath => FindProjects(new DirectoryInfo(filePath))).ToList();
+
+            WatchGypiFiles(_projects);
+        }
+
+        private void WatchGypiFiles(IEnumerable<Project> projects)
+        {
+            foreach (var project in projects)
+            {
+                var parser = new GypParser();
+                using (var reader = new StreamReader(project.GypFile.OpenRead()))
+                {
+                    parser.Parse(reader);
+                }
+                //var node = GypFile.Parse(project.GypFile);
+            }
         }
 
         private IEnumerable<Project> FindProjects(DirectoryInfo directory)
