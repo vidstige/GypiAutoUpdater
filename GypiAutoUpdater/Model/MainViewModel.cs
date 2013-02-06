@@ -56,6 +56,7 @@ namespace GypiAutoUpdater.Model
             
             if (addedIncludes.Any())
             {
+                Console.WriteLine("header files added!");
                 var doc = GypDocument.Load(GypFile);
                 var si = doc.Root.Element("targets").Children.First().Element("sources").Children.Select(c => c.Value).Select(Unexpand).ToList();
 
@@ -110,6 +111,7 @@ namespace GypiAutoUpdater.Model
                 watcher.Changed += WatcherOnChanged;
                 watcher.EnableRaisingEvents = true;
                 _watchers.Add(watcher);
+                Console.WriteLine("Watching " + project.VcxprojFile);
             }
         }
 

@@ -34,7 +34,8 @@ namespace GypiAutoUpdater.Model
             Obj,
             PropertyName,
             PropertyValue,
-            Str,
+            Str1, // '
+            Str2, // "
             Array,
             Comment
         }
@@ -87,7 +88,8 @@ namespace GypiAutoUpdater.Model
                         else _currentString.Append(c);
                         break;
                     case State.PropertyValue:
-                        if (c == '\'' || c == '"') { Push(State.Str); _currentString = new StringBuilder();}
+                        if (c == '\'') { Push(State.Str1); _currentString = new StringBuilder();}
+                        else if (c == '"') { Push(State.Str2); _currentString = new StringBuilder(); }
                         else if (IsWhiteSpace(c)) Eat();
                         else if (c == '{') Push(State.Obj);
                         else if (c == '[') Push(State.Array);
@@ -96,9 +98,12 @@ namespace GypiAutoUpdater.Model
                         else if (c == ':') Eat();
                         else Fail();
                         break;
-                    case State.Str:
+                    case State.Str1:
                         if (c == '\'') Pop();
-                        else if (c == '"') Pop();
+                        else _currentString.Append(c);
+                        break;
+                    case State.Str2:
+                        if (c == '"') Pop();
                         else _currentString.Append(c);
                         break;
                     case State.Array:
@@ -106,7 +111,8 @@ namespace GypiAutoUpdater.Model
                         else if (c == '#') Push(State.Comment);
                         else if (c == '{') Push(State.Obj);
                         else if (c == '[') Push(State.Array);
-                        else if (c == '\'' || c == '"') { Push(State.Str); _currentString = new StringBuilder(); }
+                        else if (c == '\'') { Push(State.Str1); _currentString = new StringBuilder(); }
+                        else if (c == '"') { Push(State.Str2); _currentString = new StringBuilder(); }
                         else if (IsWhiteSpace(c)) Eat();
                         else if (c == ',') Eat();
                         else Fail();
@@ -142,7 +148,8 @@ namespace GypiAutoUpdater.Model
                 case State.PropertyName: _listner.EndPropertyName(_currentString.ToString()); break;
                 case State.Array: _listner.EndArray(); break;
                 case State.PropertyValue: _listner.EndPropertyValue(_currentString.ToString()); break;
-                case State.Str:
+                case State.Str1:
+                case State.Str2:
                     {if (_stack.Peek() == State.Array) _listner.AddStringToArray(_currentString.ToString()); break;}
             }
 
