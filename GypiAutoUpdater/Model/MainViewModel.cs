@@ -40,7 +40,7 @@ namespace GypiAutoUpdater.Model
             _sources.Sort();
         }
 
-        public void CheckForNewFiles()
+        public void CheckForModifications()
         {
             var xdoc = XDocument.Load(VcxprojFile.FullName);
             var ns = xdoc.Root.GetDefaultNamespace();
@@ -49,11 +49,16 @@ namespace GypiAutoUpdater.Model
             var sources = xdoc.Root.Descendants(ns + "ItemGroup").Elements(ns + "ClCompile").Select(e => e.Attribute("Include").Value).ToList();
             sources.Sort();
 
-            var removedIncludes = _includes.Except(includes);
-            var addedIncludes = includes.Except(_includes);
+            var removedIncludes = _includes.Except(includes).ToList();
+            var addedIncludes = includes.Except(_includes).ToList();
 
-            var removedSources = _sources.Except(sources);
-            var addedSources = sources.Except(_sources);
+            var removedSources = _sources.Except(sources).ToList();
+            var addedSources = sources.Except(_sources).ToList();
+            
+            if (removedIncludes.Any() || addedIncludes.Any())
+            {
+                var doc = GypDocument.Load(GypFile);
+            }
         }
     }
 
@@ -83,7 +88,7 @@ namespace GypiAutoUpdater.Model
         private void WatcherOnChanged(object sender, FileSystemEventArgs e)
         {
             var project = _projects.Single(p => p.VcxprojFile.Name == e.Name);
-            project.CheckForNewFiles();
+            project.CheckForModifications();
         }
 
         private IEnumerable<Project> FindProjects(DirectoryInfo directory)
