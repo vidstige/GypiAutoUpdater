@@ -6,67 +6,36 @@ using System.Text;
 
 namespace GypiAutoUpdater.Model
 {
-    abstract class GypElement
+    public class GypElement
     {
         private readonly string _name;
+        private readonly List<GypElement> _children = new List<GypElement>();
 
-        protected GypElement(string name)
+        public GypElement(string name)
         {
             _name = name;
         }
+
+        public string Value { get; set; }
 
         public string Name
         {
             get { return _name; }
         }
 
-        public abstract IEnumerable<GypElement> Elements();
-        public abstract IEnumerable<GypElement> Elements(string name);
+        public IList<GypElement> Elements { get { return _children; } }
     }
-
-    class GypObject: GypElement
-    {
-        private readonly List<GypElement> _children = new List<GypElement>();
-        public GypObject(string name) : base(name)
-        {
-        }
-
-        public IList<GypElement> Children { get { return _children; } }
-
-        public override IEnumerable<GypElement> Elements()
-        {
-            return _children;
-        }
-        public override IEnumerable<GypElement> Elements(string name)
-        {
-            return _children.Where(element => element.Name == name);
-        }
-    }
-
-    class GypArray: GypElement
-    {
-        private readonly List<GypObject> _children = new List<GypObject>();
-        public GypArray(string name) : base(name)
-        {
-        }
-
-        public override IEnumerable<GypElement> Elements()
-        {
-            return _children;
-        }
-
-        public override IEnumerable<GypElement> Elements(string name)
-        {
-            throw new InvalidOperationException("Arrays have only objects");
-        }
-    }
-
 
     public class GypDocument: IGypParseListener
     {
         private string _propertyName = "root";
         private readonly Stack<GypElement> _stack = new Stack<GypElement>();
         private GypElement _root;
+
+        public GypElement Root
+        {
+            get { return _root; }
+        }
 
         public static GypDocument Load(FileInfo file)
         {
@@ -78,13 +47,20 @@ namespace GypiAutoUpdater.Model
 
         public void CreateObject()
         {
-            _stack.Push(new GypObject(_propertyName));
+            _stack.Push(new GypElement(_propertyName));
         }
 
         public void EndObject()
         {
             var x = _stack.Pop();
-            if (!_stack.Any()) _root = x;
+            if (_stack.Any())
+            {
+                _stack.Peek().Elements.Add(x);
+            }
+            else
+            {
+                _root = x;
+            }
         }
 
         public void CreatePropertyName()
@@ -95,6 +71,31 @@ namespace GypiAutoUpdater.Model
         {
             _propertyName = name;
         }
+
+        public void CreateArray()
+        {
+            _stack.Push(new GypElement(_propertyName));
+        }
+
+        public void EndArray()
+        {
+            var arr = _stack.Pop();
+            _stack.Peek().Elements.Add(arr);
+        }
+
+        public void CreatePropertyValue()
+        {
+        }
+
+        public void EndPropertyValue(string value)
+        {
+            _stack.Peek().Value = value;
+        }
+
+        public void AddStringToArray(string value)
+        {
+            _stack.Peek().Elements.Add(new GypElement(null) {Value = value});
+        }
     }
 
     interface IGypParseListener
@@ -104,6 +105,14 @@ namespace GypiAutoUpdater.Model
 
         void CreatePropertyName();
         void EndPropertyName(string name);
+
+        void CreateArray();
+        void EndArray();
+
+        void CreatePropertyValue();
+        void EndPropertyValue(string value);
+        
+        void AddStringToArray(string value);
     }
 
     class GypParser
@@ -186,7 +195,7 @@ namespace GypiAutoUpdater.Model
                         else if (c == '#') Push(State.Comment);
                         else if (c == '{') Push(State.Obj);
                         else if (c == '[') Push(State.Array);
-                        else if (c == '\'' || c == '"') Push(State.Str);
+                        else if (c == '\'' || c == '"') { Push(State.Str); _currentString = new StringBuilder(); }
                         else if (IsWhiteSpace(c)) Eat();
                         else if (c == ',') Eat();
                         else Fail();
@@ -206,6 +215,8 @@ namespace GypiAutoUpdater.Model
             {
                 case State.Obj: _listner.CreateObject(); break;
                 case State.PropertyName: _listner.CreatePropertyName(); break;
+                case State.Array: _listner.CreateArray(); break;
+                case State.PropertyValue: _listner.CreatePropertyValue(); break;
             }
             _stack.Push(state);
         }
@@ -218,6 +229,10 @@ namespace GypiAutoUpdater.Model
             {
                 case State.Obj: _listner.EndObject(); break;
                 case State.PropertyName: _listner.EndPropertyName(_currentString.ToString()); break;
+                case State.Array: _listner.EndArray(); break;
+                case State.PropertyValue: _listner.EndPropertyValue(_currentString.ToString()); break;
+                case State.Str:
+                    {if (_stack.Peek() == State.Array) _listner.AddStringToArray(_currentString.ToString()); break;}
             }
 
             if (IsAutoClose(state) && _stack.Peek() == State.PropertyValue) Pop();
