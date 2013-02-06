@@ -20,6 +20,8 @@ namespace GypiAutoUpdater.Model
         void EndPropertyValue(string value);
         
         void AddStringToArray(string value);
+
+        void Character(char c);
     }
 
     class GypParser
@@ -62,6 +64,8 @@ namespace GypiAutoUpdater.Model
             while (x >= 0)
             {
                 var c = (char)x;
+
+                _listner.Character(c);
 
                 switch (_stack.Peek())
                 {

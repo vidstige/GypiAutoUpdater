@@ -4,18 +4,21 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using GypiAutoUpdater.FileSystem;
+using GypiAutoUpdater.Gyp.Linq;
 
 namespace GypiAutoUpdater.Model
 {
     internal class Project
     {
+        private readonly string _targetName;
         private readonly FileInfo _gyp;
         private readonly FileInfo _vcxproj;
         private List<string> _includes;
         private List<string> _sources;
 
-        public Project(FileInfo gyp, FileInfo vcxproj)
+        public Project(string targetName, FileInfo gyp, FileInfo vcxproj)
         {
+            _targetName = targetName;
             _gyp = gyp;
             _vcxproj = vcxproj;
         }
@@ -35,9 +38,7 @@ namespace GypiAutoUpdater.Model
             var xdoc = XDocument.Load(VcxprojFile.FullName);
             var ns = xdoc.Root.GetDefaultNamespace();
             _includes = xdoc.Root.Descendants(ns + "ItemGroup").Elements(ns + "ClInclude").Select(e => e.Attribute("Include").Value).ToList();
-            _includes.Sort();
             _sources = xdoc.Root.Descendants(ns + "ItemGroup").Elements(ns + "ClCompile").Select(e => e.Attribute("Include").Value).ToList();
-            _sources.Sort();
         }
 
         public void CheckForModifications()
@@ -45,9 +46,7 @@ namespace GypiAutoUpdater.Model
             var xdoc = XDocument.Load(VcxprojFile.FullName);
             var ns = xdoc.Root.GetDefaultNamespace();
             var includes = xdoc.Root.Descendants(ns + "ItemGroup").Elements(ns + "ClInclude").Select(e => e.Attribute("Include").Value).ToList();
-            includes.Sort();
             var sources = xdoc.Root.Descendants(ns + "ItemGroup").Elements(ns + "ClCompile").Select(e => e.Attribute("Include").Value).ToList();
-            sources.Sort();
 
             var removedIncludes = _includes.Except(includes).ToList();
             var addedIncludes = includes.Except(_includes).ToList();
@@ -55,10 +54,32 @@ namespace GypiAutoUpdater.Model
             var removedSources = _sources.Except(sources).ToList();
             var addedSources = sources.Except(_sources).ToList();
             
-            if (removedIncludes.Any() || addedIncludes.Any())
+            if (addedIncludes.Any())
             {
                 var doc = GypDocument.Load(GypFile);
+                var si = doc.Root.Element("targets").Children.First().Element("sources").Children.Select(c => c.Value).Select(Unexpand).ToList();
+
+                // Ugle decision here. Check the name of the variable. Better would to check which of the variables has most .h files or .cpp files
+                var headerVariable = si.First(sourceVariable => sourceVariable.Contains("header"));
+
+                // stream edit each gypi and ad the new headers to the variable
+                var gypis = doc.Root.Children.First().Children.Select(c => c.Value).ToList();
+                foreach (var gypi in gypis)
+                {
+                    var editor = new GypStreamEditor(Path.Combine(GypFile.Directory.FullName, gypi), Console.Out);
+                    editor.AddStringToArray(headerVariable, addedIncludes);
+                    editor.Go();
+                }
             }
+        }
+
+        private string Unexpand(string expansion)
+        {
+            if (expansion.StartsWith("<@(") && expansion.EndsWith(")"))
+            {
+                return expansion.Substring(3, expansion.Length-4);
+            }
+            return expansion;
         }
     }
 
@@ -101,7 +122,7 @@ namespace GypiAutoUpdater.Model
                     var vcxproj = gypFile.Directory.EnumerateFiles(targetName + ".vcxproj").SingleOrDefault();
                     if (vcxproj != null)
                     {
-                        yield return new Project(gypFile, vcxproj);
+                        yield return new Project(targetName, gypFile, vcxproj);
                     }
                 }
             }   

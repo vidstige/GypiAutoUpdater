@@ -62,12 +62,15 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="FileSystem\DirectoryCrawlExtensions.cs" />
+    <Compile Include="Gyp.Linq\GypStreamEditor.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Gyp.Linq\GypDocument.cs" />
+    <Compile Include="Gyp.Linq\GypElement.cs" />
     <Compile Include="Model\GypParser.cs" />
     <Compile Include="Model\MainViewModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">

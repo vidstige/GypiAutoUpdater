@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace GypiAutoUpdater.Model
 {
@@ -19,6 +20,8 @@ namespace GypiAutoUpdater.Model
             get { return _name; }
         }
 
-        public IList<GypElement> Elements { get { return _children; } }
+        public IList<GypElement> Children { get { return _children; } }
+        public IEnumerable<GypElement> Elements(string name) { return _children.Where(e => e.Name == name); }
+        public GypElement Element(string name) { return _children.FirstOrDefault(e => e.Name == name); }
     }
 }

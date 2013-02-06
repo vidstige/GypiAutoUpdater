@@ -33,7 +33,7 @@ namespace GypiAutoUpdater.Model
             var x = _stack.Pop();
             if (_stack.Any())
             {
-                _stack.Peek().Elements.Add(x);
+                _stack.Peek().Children.Add(x);
             }
             else
             {
@@ -58,7 +58,7 @@ namespace GypiAutoUpdater.Model
         public void EndArray()
         {
             var arr = _stack.Pop();
-            _stack.Peek().Elements.Add(arr);
+            _stack.Peek().Children.Add(arr);
         }
 
         public void CreatePropertyValue()
@@ -72,7 +72,11 @@ namespace GypiAutoUpdater.Model
 
         public void AddStringToArray(string value)
         {
-            _stack.Peek().Elements.Add(new GypElement(null) {Value = value});
+            _stack.Peek().Children.Add(new GypElement(null) {Value = value});
+        }
+
+        public void Character(char c)
+        {
         }
     }
 }
