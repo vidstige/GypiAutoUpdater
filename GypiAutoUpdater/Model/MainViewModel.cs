@@ -63,20 +63,29 @@ namespace GypiAutoUpdater.Model
                 // Ugle decision here. Check the name of the variable. Better would to check which of the variables has most .h files or .cpp files
                 var headerVariable = si.First(sourceVariable => sourceVariable.Contains("header"));
 
-                // stream edit each gypi and ad the new headers to the variable
+                // stream edit each gypi and and the new headers to the variable
                 var gypis = doc.Root.Children.First().Children.Select(c => c.Value).ToList();
                 foreach (var gypi in gypis)
                 {
                     var ms = new MemoryStream();
                     var gypiPath = Path.Combine(GypFile.Directory.FullName, gypi);
                     
-                    // stream-edit the gypi
+                    // stream-edit the gypi for non intrusive edits
                     var editor = new GypStreamEditor(gypiPath, new StreamWriter(ms));
                     editor.AddStringToArray(headerVariable, addedIncludes);
-                    editor.Go();
+                    var wasModified = editor.Go();
 
-                    // ovewrite the old gypi file
-                    File.WriteAllBytes(gypiPath, ms.GetBuffer());
+                    if (wasModified)
+                    {
+                        // ovewrite the old gypi file
+                        File.WriteAllBytes(gypiPath, ms.ToArray());
+
+                        // Update
+                        foreach (var addedInclude in addedIncludes)
+                        {
+                            _includes.Add(addedInclude);
+                        }
+                    }
                 }
             }
         }
@@ -117,6 +126,7 @@ namespace GypiAutoUpdater.Model
 
         private void WatcherOnChanged(object sender, FileSystemEventArgs e)
         {
+            if (e.ChangeType != WatcherChangeTypes.Changed) return;
             var project = _projects.Single(p => p.VcxprojFile.Name == e.Name);
             project.CheckForModifications();
         }

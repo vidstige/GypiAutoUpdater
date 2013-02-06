@@ -32,5 +32,12 @@ namespace GypAutoUpdater.Tests
             streamEditor.AddStringToArray("rebrtc_header_files", new [] {"foo.h"});
             streamEditor.Go();
         }
+
+        [Test]
+        public void numbers()
+        {
+            var streamEditor = new GypStreamEditor(@"F:\src\sdk\rebtel_sdk\trunk\gyp\common.gypi", System.Console.Out);
+            streamEditor.Go();
+        }
     }
 }

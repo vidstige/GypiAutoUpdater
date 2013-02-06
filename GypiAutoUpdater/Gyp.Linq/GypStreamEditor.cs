@@ -10,6 +10,7 @@ namespace GypiAutoUpdater.Gyp.Linq
         private readonly TextWriter _output;
         private readonly Dictionary<string, IEnumerable<string>> _arrayAdditions = new Dictionary<string, IEnumerable<string>>();
         private string _tmp = string.Empty;
+        private bool _wasModified;
 
         public GypStreamEditor(string path, TextWriter output)
         {
@@ -17,10 +18,13 @@ namespace GypiAutoUpdater.Gyp.Linq
             _output = output;
         }
 
-        public void Go()
+        public bool Go()
         {
+            _wasModified = false;
             var parser = new GypParser(this);
             parser.Parse(new FileInfo(_path));
+            _output.Flush();
+            return _wasModified;
         }
 
         public void AddStringToArray(string arrayName, IEnumerable<string> values)
@@ -52,6 +56,7 @@ namespace GypiAutoUpdater.Gyp.Linq
             {
                 foreach (var addition in _arrayAdditions[_tmp])
                 {
+                    _wasModified = true;
                     _output.Write(string.Format("\n'{0}',", addition)); // TODO: Intendation not respected :-/
                 }
             }

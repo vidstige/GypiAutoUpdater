@@ -37,7 +37,8 @@ namespace GypiAutoUpdater.Model
             Str1, // '
             Str2, // "
             Array,
-            Comment
+            Comment,
+            Number
         }
 
         private readonly Stack<State> _stack = new Stack<State>();
@@ -50,7 +51,8 @@ namespace GypiAutoUpdater.Model
 
         public void Parse(FileInfo gypFile)
         {
-            using (var reader = new StreamReader(gypFile.OpenRead()))
+            using (var fs = gypFile.OpenRead())
+            using (var reader = new StreamReader(fs))
             {
                 Parse(reader);
             }
@@ -90,6 +92,7 @@ namespace GypiAutoUpdater.Model
                     case State.PropertyValue:
                         if (c == '\'') { Push(State.Str1); _currentString = new StringBuilder();}
                         else if (c == '"') { Push(State.Str2); _currentString = new StringBuilder(); }
+                        else if (Char.IsNumber(c)) { Push(State.Number); _currentString = new StringBuilder(); }
                         else if (IsWhiteSpace(c)) Eat();
                         else if (c == '{') Push(State.Obj);
                         else if (c == '[') Push(State.Array);
@@ -104,6 +107,10 @@ namespace GypiAutoUpdater.Model
                         break;
                     case State.Str2:
                         if (c == '"') Pop();
+                        else _currentString.Append(c);
+                        break;
+                    case State.Number:
+                        if (!Char.IsNumber(c)) Pop();
                         else _currentString.Append(c);
                         break;
                     case State.Array:
@@ -150,6 +157,7 @@ namespace GypiAutoUpdater.Model
                 case State.PropertyValue: _listner.EndPropertyValue(_currentString.ToString()); break;
                 case State.Str1:
                 case State.Str2:
+                case State.Number:
                     {if (_stack.Peek() == State.Array) _listner.AddStringToArray(_currentString.ToString()); break;}
             }
 
@@ -158,7 +166,7 @@ namespace GypiAutoUpdater.Model
 
         private static bool IsAutoClose(State state)
         {
-            return state == State.Array || state == State.Obj;
+            return state == State.Array || state == State.Obj || state == State.Number;
         }
 
         private void Fail()
