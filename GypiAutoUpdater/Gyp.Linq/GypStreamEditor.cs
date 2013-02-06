@@ -52,7 +52,7 @@ namespace GypiAutoUpdater.Gyp.Linq
             {
                 foreach (var addition in _arrayAdditions[_tmp])
                 {
-                    _output.Write(string.Format("'{0}',", addition));
+                    _output.Write(string.Format("\n'{0}',", addition)); // TODO: Intendation not respected :-/
                 }
             }
         }

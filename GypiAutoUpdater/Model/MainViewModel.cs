@@ -66,9 +66,16 @@ namespace GypiAutoUpdater.Model
                 var gypis = doc.Root.Children.First().Children.Select(c => c.Value).ToList();
                 foreach (var gypi in gypis)
                 {
-                    var editor = new GypStreamEditor(Path.Combine(GypFile.Directory.FullName, gypi), Console.Out);
+                    var ms = new MemoryStream();
+                    var gypiPath = Path.Combine(GypFile.Directory.FullName, gypi);
+                    
+                    // stream-edit the gypi
+                    var editor = new GypStreamEditor(gypiPath, new StreamWriter(ms));
                     editor.AddStringToArray(headerVariable, addedIncludes);
                     editor.Go();
+
+                    // ovewrite the old gypi file
+                    File.WriteAllBytes(gypiPath, ms.GetBuffer());
                 }
             }
         }
